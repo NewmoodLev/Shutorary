@@ -162,7 +162,7 @@ const (
 var (
 	DefaultPlayerScale        float32 = 2.0
 	DefaultPlayer2Scale       float32 = 2.0
-	DefaultPlayerYawOffsetDeg float32 = -180.0
+	DefaultPlayerYawOffsetDeg float32 = -90.0
 
 	DefaultEnemyScaleFactor  float32 = 6.0 // คูณกับ enemy.size
 	DefaultEnemyYawOffsetDeg float32 = 0.0
