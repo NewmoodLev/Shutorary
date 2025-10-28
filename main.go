@@ -1199,25 +1199,41 @@ func (g *Game) Update(dt float32) {
 			}
 		}
 
-		// Update bob animation
-		if isMoving {
-			player.bobTime += dt * player.bobSpeed
-			// ใช้ sine wave สำหรับการกระเด้งขึ้นลง
-			player.position.Y = 0.5 + float32(math.Sin(float64(player.bobTime)))*player.bobHeight
-		} else {
-			player.bobTime = 0
-			player.position.Y = 0.5
+		// --- Added: skill input handling (P1: Q/E/F, P2: Numpad 1/2/3 or 1/2/3) ---
+		if pIdx == 0 {
+			// Player 1 skills
+			if rl.IsKeyPressed(rl.KeyQ) {
+				g.UseSkill(player, 0)
+			}
+			if rl.IsKeyPressed(rl.KeyE) {
+				g.UseSkill(player, 1)
+			}
+			if rl.IsKeyPressed(rl.KeyF) {
+				g.UseSkill(player, 2)
+			}
+		} else if pIdx == 1 && g.coopMode {
+			// Player 2 skills - try Numpad keys first, fallback to top-row numbers
+			if rl.IsKeyPressed(rl.KeyKp1) || rl.IsKeyPressed(rl.KeyOne) {
+				g.UseSkill(player, 0)
+			}
+			if rl.IsKeyPressed(rl.KeyKp2) || rl.IsKeyPressed(rl.KeyTwo) {
+				g.UseSkill(player, 1)
+			}
+			if rl.IsKeyPressed(rl.KeyKp3) || rl.IsKeyPressed(rl.KeyThree) {
+				g.UseSkill(player, 2)
+			}
 		}
 
-		// Check collision with obstacles
-		if !g.CheckObstacleCollision(newPos, 0.6) {
+		// Apply movement: check collision then commit new position
+		// (prevent walking through obstacles)
+		if !g.CheckObstacleCollision(newPos, 0.9) {
 			player.position = newPos
+		} else {
+			// ถ้าชน obstacle อยู่ ให้ไม่ย้ายตำแหน่ง (สามารถปรับเป็น slide ได้ถ้าต้องการ)
 		}
 
-		// Boundary limits
-		maxBound := float32(25.0)
-		player.position.X = float32(math.Max(float64(-maxBound), math.Min(float64(maxBound), float64(player.position.X))))
-		player.position.Z = float32(math.Max(float64(-maxBound), math.Min(float64(maxBound), float64(player.position.Z))))
+		// Apply movement state to player for animations
+		player.isMoving = isMoving
 	}
 
 	// Update bullets
