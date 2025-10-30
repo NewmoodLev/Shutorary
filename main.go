@@ -686,6 +686,38 @@ func (g *Game) CheckObstacleCollision(pos rl.Vector3, radius float32) bool {
 	return false
 }
 
+// --- Added: clamp player position to stage/map bounds to prevent leaving map ---
+func (g *Game) clampPlayerToStageBounds(player *Player, margin float32) {
+	// Default map half-size (plane is 60x60 => half = 30)
+	half := float32(30.0) - margin
+
+	// For specific stages adjust the playable area (e.g., arena walls at ±18)
+	switch g.currentStage {
+	case StageArena:
+		half = float32(18.0) - margin
+	case StageMaze:
+		// Maze walls may be placed inside +/-20 but keep safe margin
+		half = float32(28.0) - margin
+	case StageHazard:
+		// Hazard uses full map but reserve margin
+		half = float32(29.0) - margin
+	}
+
+	// Clamp X,Z
+	if player.position.X < -half {
+		player.position.X = -half
+	}
+	if player.position.X > half {
+		player.position.X = half
+	}
+	if player.position.Z < -half {
+		player.position.Z = -half
+	}
+	if player.position.Z > half {
+		player.position.Z = half
+	}
+}
+
 func (g *Game) ApplyUpgrade(choice int) {
 	for i := range g.players {
 		switch choice {
@@ -1197,6 +1229,46 @@ func (g *Game) Update(dt float32) {
 					player.tiltAngle = float32(math.Min(0, float64(player.tiltAngle+dt*2)))
 				}
 			}
+
+			// P2 shooting: NumPad 8/2/4/6 directional shoot, NumPad 0 = auto-aim nearest enemy
+			if rl.IsKeyDown(rl.KeyKp8) {
+				player.angle = -math.Pi / 2
+				g.ShootBullet(player)
+			}
+			if rl.IsKeyDown(rl.KeyKp2) {
+				player.angle = math.Pi / 2
+				g.ShootBullet(player)
+			}
+			if rl.IsKeyDown(rl.KeyKp4) {
+				player.angle = math.Pi
+				g.ShootBullet(player)
+			}
+			if rl.IsKeyDown(rl.KeyKp6) {
+				player.angle = 0
+				g.ShootBullet(player)
+			}
+			// Auto-aim (NumPad 0) - ยิงไปยังศัตรูที่ใกล้สุดเมื่อกดครั้งเดียว
+			if rl.IsKeyPressed(rl.KeyKp0) {
+				var nearest *Enemy
+				minD := float32(1e6)
+				for i := range g.enemies {
+					if !g.enemies[i].active {
+						continue
+					}
+					dx := g.enemies[i].position.X - player.position.X
+					dz := g.enemies[i].position.Z - player.position.Z
+					d := float32(math.Sqrt(float64(dx*dx + dz*dz)))
+					if d < minD {
+						minD = d
+						nearest = &g.enemies[i]
+					}
+				}
+				if nearest != nil {
+					ang := float32(math.Atan2(float64(nearest.position.Z-player.position.Z), float64(nearest.position.X-player.position.X)))
+					player.angle = ang
+					g.ShootBullet(player)
+				}
+			}
 		}
 
 		// --- Added: skill input handling (P1: Q/E/F, P2: Numpad 1/2/3 or 1/2/3) ---
@@ -1231,6 +1303,9 @@ func (g *Game) Update(dt float32) {
 		} else {
 			// ถ้าชน obstacle อยู่ ให้ไม่ย้ายตำแหน่ง (สามารถปรับเป็น slide ได้ถ้าต้องการ)
 		}
+
+		// Ensure player stays inside map/stage bounds
+		g.clampPlayerToStageBounds(player, 0.9)
 
 		// Apply movement state to player for animations
 		player.isMoving = isMoving
